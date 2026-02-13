@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Megatree</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: sans-serif; }
+    #graph { width: 100vw; height: calc(100vh - 40px); background: #fafafa; }
+    .node circle { fill: #69b3a2; cursor: grab; }
+    .node text { fill: #fff; font-size: 12px; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+
+		#hidden-nodes-panel div.node-item {
+			cursor: pointer;
+			padding: 4px;
+			margin: 2px 0;
+			background: #ddd;
+			border-radius: 4px;
+			transition: background 0.2s;
+		}
+		#hidden-nodes-panel div.node-item:hover {
+			background: #ccc;
+		}
+
+  </style>
+</head>
+<body>
+
+
+<div id="controls" style="position:fixed; top:0; left:0; right:0; padding:8px; background:#eee; z-index:10;">
+  <input id="fileInput" type="file" accept=".json">
+
+
+  <label for="trimSlider">Trim:</label>
+  <input type="range" id="trimSlider" min="0" max="10" step="1" value="0">
+  <span id="trimValue">0</span>
+
+  <label for="mergeSlider" style="margin-left:12px;">Merge:</label>
+  <input type="range" id="mergeSlider" min="0" max="10" step="1" value="0">
+  <span id="mergeValue" style="margin-right: 12px;">0</span>
+
+  <input type="checkbox" id="showWeightCheck">
+  <label for="showWeightCheck">Show weights</label>
+</div>
+
+<div id="snippet" style="position:absolute; display:none; background:white; border:1px solid #ccc; padding:8px; box-shadow: 2px 2px 10px rgba(0,0,0,0.2); border-radius:6px; font-size:14px; z-index:20;"></div>
+
+<!-- Toggle Button -->
+<button id="toggle-hidden-nodes" style="
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+	transition: right 0.3s ease;
+">☰ Nodi Nascosti</button>
+
+<!-- Sidebar -->
+<div id="hidden-nodes-panel" style="
+  position: absolute;
+  top: 0;
+  right: -238px;
+  width: 220px;
+  height: 100%;
+  background-color: #f0f0f0;
+  border-left: 1px solid #ccc;
+  box-shadow: -2px 0 5px rgba(0,0,0,0.2);
+  overflow-y: auto;
+  padding: 10px;
+  transition: right 0.3s ease;
+  z-index: 999;
+">
+  <strong>Nodi nascosti:</strong>
+  <div id="hidden-nodes-list" style="margin-top: 10px;"></div>
+</div>
+
+<div id="graph"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/elkjs/lib/elk.bundled.js"></script>
+<script>
+(async () => {
+  let data, nodes, links, originalNodes, originalLinks, nodeSel, linkSel;
+	const hiddenNodesId = new Set();
+  const radius = 20;
+	const nodeListDiv = document.getElementById("hidden-nodes-list");
+  let svg, g;
+
+
+   document.getElementById("fileInput").addEventListener("change", e => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = event => {
+        try {
+          data = JSON.parse(event.target.result);
+        } catch(err) {
+          alert("Errore nel parsing del JSON: " + err);
+          return;
+        }
+        initGraph(data);
+  
+      };
+      reader.readAsText(file);
+    });
+
+  function initGraph(data){
+    originalNodes = data.nodes.map(d => ({ ...d }));
+    originalLinks = data.links.map(d => ({ ...d }));
+    nodes = originalNodes.map(d => ({ ...d }));
+    links = originalLinks.map(d => ({ ...d }));
+
+    d3.select("#graph").select("svg")?.remove();
+    svg = d3.select("#graph").append("svg");
+    g   = svg.append("g");
+
+    setupZoom(svg, g);
+    computeLayout();
+    createDefs(svg);
+    drawGraph();
+    setupUI();
+    window.addEventListener("resize", resize);
+  }
+
+  function computeTreeLayout() {
+  const level = longestPathFromRoots();
+  const roots = nodes.filter(n => !links.some(l => l.target === n.id));
+
+  // Raggruppa i nodi per livello
+  const levelsMap = new Map();
+  nodes.forEach(n => {
+    const l = level.get(n.id);
+    if (!levelsMap.has(l)) levelsMap.set(l, []);
+    levelsMap.get(l).push(n.id);
+  });
+
+  const verticalSpacing = 100;
+  const horizontalSpacing = 100;
+
+  // Per ogni livello, assegna x progressivo ai nodi, y = livello * spacing verticale
+  levelsMap.forEach((nodesAtLevel, l) => {
+    nodesAtLevel.forEach((nodeId, i) => {
+      const node = nodes.find(n => n.id === nodeId);
+      if (node) {
+        node.x = i * horizontalSpacing;
+        node.y = l * verticalSpacing;
+      }
+    });
+  });
+}
+
+  function computeLayout() {
+    const g = new dagre.graphlib.Graph();
+    g.setGraph({ rankdir: 'TB', ranker: 'tight,tree',  marginx: 20, marginy: 20 });
+    g.setDefaultEdgeLabel(() => ({}));
+
+    nodes.forEach(n => {
+      g.setNode(n.id, { width: radius*2, height: radius*2});
+    });
+
+    links.forEach(l => {
+      g.setEdge(l.source, l.target);
+    });
+
+    dagre.layout(g);
+
+    nodes.forEach(n => {
+      const nodeWithPos = g.node(n.id);
+      n.x = nodeWithPos.x;
+      n.y = nodeWithPos.y;
+    });
+
+    const svgWidth = document.getElementById("graph").clientWidth;
+    const svgHeight = document.getElementById("graph").clientHeight;
+    svg.attr("width", svgWidth).attr("height", svgHeight)
+
+  }
+
+  function positionNodes(nodesByLevel) {
+    const width = document.getElementById("graph").clientWidth;
+    const height = document.getElementById("graph").clientHeight;
+    const vGap = (height - 2 * radius) / (Object.keys(nodesByLevel).length - 1 || 1);
+
+    Object.entries(nodesByLevel).forEach(([lvl, arr]) => {
+      const hGap = (width - 2 * radius) / (arr.length + 1);
+      arr.forEach((n, i) => {
+        n.x = radius + hGap * (i + 1);
+        n.y = radius + vGap * lvl;
+      });
+    });
+    svg.attr("width", width).attr("height", height);
+  }
+
+  function setupZoom(svg, g) {
+    svg.call(d3.zoom().scaleExtent([0.3, 3]).on("zoom", event => g.attr("transform", event.transform)));
+  }
+
+  function createDefs(svg) {
+    const defs = svg.append("defs");
+    const refXList = [32, 32, 26, 21];
+    [1, 2, 3, 4].forEach((w, i) => {
+      defs.append("marker")
+        .attr("id", `arrow-${w}`)
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 9)
+        .attr("refY", 0)
+        .attr("markerWidth", 14)
+        .attr("markerHeight", 14)
+				.attr("markerUnits", "userSpaceOnUse")
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("fill", "black");
+    });
+  }
+
+  function linkPath(d) {
+  const s = getNode(d.source),
+        t = getNode(d.target),
+        r = radius,
+        straightLen = 15;
+
+  // Calcola ogni volta il punto medio
+  const midX = (s.x + t.x) / 2;
+  const midY = (s.y + t.y) / 2;
+
+  // Applica uno scostamento casuale (o fisso) rispetto alla normale
+  // qui uso un offset costante, oppure potresti generare random ogni volta
+  const offset = (+s.x - +t.x)/4;
+  // vettore perpendicolare normalizzato
+  const dx = t.x - s.x,
+        dy = t.y - s.y,
+        len = Math.hypot(dx, dy) || 1;
+  const perpX = -dy / len * offset,
+        perpY =  dx / len * offset;
+
+  const ctrlX = midX + perpX,
+        ctrlY = midY + perpY;
+
+  // calcola inizio e fine curva come prima…
+  const angStart = Math.atan2(ctrlY - s.y, ctrlX - s.x),
+        sx = s.x + Math.cos(angStart) * r,
+        sy = s.y + Math.sin(angStart) * r;
+  const angEnd   = Math.atan2(t.y - ctrlY, t.x - ctrlX),
+        ex = t.x - Math.cos(angEnd) * r,
+        ey = t.y - Math.sin(angEnd) * r;
+  const lx = ex - Math.cos(angEnd) * straightLen,
+        ly = ey - Math.sin(angEnd) * straightLen;
+
+  return `M${sx},${sy} Q${ctrlX},${ctrlY} ${lx},${ly} L${ex},${ey}`;
+}
+
+  function drawGraph() {
+		g.selectAll("*").remove();
+
+    const colorScale = d3.scaleLinear()
+      .domain(d3.extent(originalLinks, d => d.weight || 1))
+      .range([0, 1]);
+    const widthScale = d3.scaleLinear()
+      .domain(d3.extent(originalLinks, d => d.weight || 1))
+      .range([1.5, 4]);
+    const colorInterpolator = d3.interpolateRdYlGn;
+
+    linkSel = g.append("g")
+      .selectAll("path.link")
+      .data(links)
+      .enter().append("path")
+			.style("display", d => 
+  			hiddenNodesId.has(d.source) || hiddenNodesId.has(d.target) ? "none" : "inline")
+      .attr("class", "link")
+      .attr("d", d => linkPath(d))
+			.attr("fill", "none")
+      .attr("stroke", d => colorInterpolator(colorScale(d.weight || 1)))
+      .attr("stroke-width", d => Math.round(widthScale(d.weight || 1)))
+      .attr("marker-end", d => `url(#arrow-${Math.round(widthScale(d.weight || 1))})`);
+
+
+    nodeSel = g.append("g")
+      .selectAll("g.node")
+      .data(nodes)
+      .enter().append("g")
+			.style("display", d => hiddenNodesId.has(d.id) ? "none" : "inline")
+      .attr("class", "node")
+      .attr("transform", d => `translate(${d.x},${d.y})`)
+      .call(d3.drag()
+        .on("start", function (event, d) {
+          d3.select(this).raise().select("circle").attr("cursor", "grabbing");
+        })
+        .on("drag", function (event, d) {
+          d.x = event.x;
+          d.y = event.y;
+          d3.select(this).attr("transform", `translate(${d.x},${d.y})`);
+          updateLinks(d);
+        })
+        .on("end", function () {
+          d3.select(this).select("circle").attr("cursor", "grab");
+    
+        }))
+			.on("contextmenu", (event, d) => {
+				event.preventDefault();
+
+				const snippet = document.getElementById("snippet");
+				snippet.style.left = `${event.pageX + 10}px`;
+				snippet.style.top = `${event.pageY + 10}px`;
+				snippet.innerHTML = `
+					<strong>ID:</strong> ${d.id}<br/>
+					<strong>Label:</strong> ${d.label || '(nessuna)'}<br/>
+					<button id="hideBtn">Nascondi nodo</button>`;
+				snippet.style.display = "block";
+
+				document.getElementById("hideBtn").addEventListener("click", () => {
+					const nodeId = d.id;
+					hiddenNodesId.add(nodeId);
+					g.selectAll(".node").filter(d => d.id === nodeId).style("display", "none");
+					g.selectAll(".link").filter(d => d.source === nodeId || d.target === nodeId).style("display", "none");
+					updateHiddenNodesPanel();
+          applyShowWeight();
+					snippet.style.display = "none";
+				});
+			})
+      .on("mouseover", function (event, d) {
+        // nodo sorgente
+        d3.select(this).select("circle")
+          .attr("stroke", "#ff9800")
+          .attr("stroke-width", 3);
+
+        // archi in uscita + nodi target
+        g.selectAll(".link")
+          .filter(link => link.source === d.id)
+          .each(function(link) {
+            // evidenzio l'arco
+            d3.select(this)
+              .attr("stroke", "#ff9800")
+
+            // evidenzio il nodo target
+            g.selectAll(".node")
+              .filter(n => n.id === link.target)
+              .select("circle")
+              .attr("stroke", "#ff9800")
+              .attr("stroke-width", 3);
+          });
+      })
+      .on("mouseout", function (event, d) {
+        // reset nodo sorgente
+        d3.select(this).select("circle")
+          .attr("stroke", "black")
+          .attr("stroke-width", 1);
+
+        // reset archi in uscita + nodi target
+        g.selectAll(".link")
+          .filter(link => link.source === d.id)
+          .each(function(link) {
+            // ripristino l'arco
+            d3.select(this)
+              .attr("stroke", colorInterpolator(colorScale(link.weight || 1)))
+              .attr("stroke-width", Math.round(widthScale(link.weight || 1)));
+
+            // ripristino il nodo target
+            g.selectAll(".node")
+              .filter(n => n.id === link.target)
+              .select("circle")
+              .attr("stroke", "black")
+              .attr("stroke-width", 1);
+          });
+      });
+
+    nodeSel.append("circle").attr("r", radius).attr("stroke", "black");
+    nodeSel.append("text").text(d => d.label || d.id);
+  }
+
+  function updateLinks(node) {
+    linkSel
+      .filter(l => l.source === node.id)
+      .attr("d", d => linkPath(d));
+
+    linkSel
+      .filter(l => l.target === node.id)
+      .attr("d", d => linkPath(d));
+		
+		g.selectAll(".link-labels text")
+			.filter(d => d.source === node.id || d.target === node.id)
+			.attr("x", d => (getNode(d.source).x + getNode(d.target).x) / 2)
+			.attr("y", d => (getNode(d.source).y + getNode(d.target).y) / 2);
+
+  }
+
+  function getNode(id) {
+    return nodes.find(n => n.id === id);
+  }
+
+  function resize() {
+    computeLayout();
+    drawGraph();
+  }
+
+  function setupUI() {
+    const trimSlider = document.getElementById("trimSlider");
+    const trimValue = document.getElementById("trimValue");
+    const mergeSlider = document.getElementById("mergeSlider");
+    const mergeValue = document.getElementById("mergeValue");
+    const showWeightCheck = document.getElementById("showWeightCheck");
+		const visibleLinks = links;
+
+		const toggleHiddenBtn = document.getElementById("toggle-hidden-nodes");
+		const hiddenSidebar = document.getElementById("hidden-nodes-panel");
+		let hiddenSidebarVisible = false;
+
+    trimSlider.addEventListener("input", () => trimValue.textContent = trimSlider.value);
+    mergeSlider.addEventListener("input", () => mergeValue.textContent = mergeSlider.value);
+
+    trimSlider.addEventListener("change", () => {
+      resetData();
+      applyMerge(+mergeSlider.value);
+      applyTrim(+trimSlider.value);
+			applyShowWeight();
+    });
+
+    mergeSlider.addEventListener("change", () => {
+      resetData();
+      applyMerge(+mergeSlider.value);
+      applyTrim(+trimSlider.value);
+			applyShowWeight();
+    });
+
+    showWeightCheck.addEventListener("change", () => {
+        resetData();
+        applyMerge(+mergeSlider.value);
+        applyTrim(+trimSlider.value);
+				applyShowWeight();
+    })
+	
+
+		toggleHiddenBtn.addEventListener("click", () => {
+			hiddenSidebarVisible = !hiddenSidebarVisible;
+			hiddenSidebar.style.right = hiddenSidebarVisible ? "0px" : "-238px";
+			toggleHiddenBtn.style.right = hiddenSidebarVisible ? "248px" : "10px";
+		});
+	}
+
+  function resetData() {
+    const positionMap = new Map(nodes.map(n => [n.id, { x: n.x, y: n.y }]));
+
+		nodes = originalNodes.map(d => ({ ...d}));
+    links = originalLinks.map(d => ({ ...d }));
+		computeLayout();
+
+		for (const node of nodes) {
+			const pos = positionMap.get(node.id);
+			if (pos) {
+				node.x = pos.x;
+				node.y = pos.y;
+			}
+		}
+
+
+    drawGraph();
+  }
+
+  function applyTrim(value) {
+		
+		links = links.filter(l => (l.weight || 1) > value);
+
+	
+		const visibleNodeIds = new Set();
+		links.forEach(l => {
+			visibleNodeIds.add(l.source);
+			visibleNodeIds.add(l.target);
+		});
+
+
+		nodes = nodes.filter(n => visibleNodeIds.has(n.id));
+
+		drawGraph();
+  }
+
+  function applyMerge(threshold) {
+    threshold = +threshold;
+    let stop = false;
+
+    while (!stop) {
+        stop = true;
+        const nodesCopy = nodes.slice();
+        const linksCopy = links.slice();
+
+        outer: for (let i = 0; i < nodesCopy.length; i++) {
+        const node1 = nodesCopy[i];
+        for (let j = 0; j < nodesCopy.length; j++) {
+            if (i === j) continue;
+            const node2 = nodesCopy[j];
+            if (!nodes.find(n => n.id === node1.id) || !nodes.find(n => n.id === node2.id)) continue;
+
+            const preds1 = links.filter(l => l.target === node1.id).map(l => l.source).sort();
+            const succs1 = links.filter(l => l.source === node1.id).map(l => l.target).sort();
+            const preds2 = links.filter(l => l.target === node2.id).map(l => l.source).sort();
+            const succs2 = links.filter(l => l.source === node2.id).map(l => l.target).sort();
+
+            if (JSON.stringify(preds1) === JSON.stringify(preds2) && JSON.stringify(succs1) === JSON.stringify(succs2)) {
+            let inWeightsClose = true;
+            inWeightsClose = preds1.every(pre => {
+                const w1 = links.find(l => l.source === pre && l.target === node1.id)?.weight || 0;
+                const w2 = links.find(l => l.source === pre && l.target === node2.id)?.weight || 0;
+                return Math.abs(w1 - w2) <= threshold;
+            });
+            let outWeightsClose = true;
+            outWeightsClose = succs1.every(suc => {
+                const w1 = links.find(l => l.source === node1.id && l.target === suc)?.weight || 0;
+                const w2 = links.find(l => l.source === node2.id && l.target === suc)?.weight || 0;
+                return Math.abs(w1 - w2) <= threshold;
+            });
+            if (inWeightsClose && outWeightsClose) {
+                const label2 = nodes.find(n => n.id === node2.id)?.label || node2.id;
+                const node1Obj = nodes.find(n => n.id === node1.id);
+                node1Obj.label += " / " + label2;
+
+                preds1.forEach(pre => {
+                const link1 = links.find(l => l.source === pre && l.target === node1.id);
+                const link2 = links.find(l => l.source === pre && l.target === node2.id);
+                if (link1 && link2) {
+                    const avg = (link1.weight + link2.weight) / 2;
+                    link1.weight = avg;
+                    link1.label = avg;
+                }
+                });
+                succs1.forEach(suc => {
+                const link1 = links.find(l => l.source === node1.id && l.target === suc);
+                const link2 = links.find(l => l.source === node2.id && l.target === suc);
+                if (link1 && link2) {
+                    const avg = (link1.weight + link2.weight) / 2;
+                    link1.weight = avg;
+                    link1.label = avg;
+                }
+                });
+
+                const idxNode2 = nodes.findIndex(n => n.id === node2.id);
+                if (idxNode2 !== -1) nodes.splice(idxNode2, 1);
+
+                for (let k = links.length - 1; k >= 0; k--) {
+                if (links[k].source === node2.id || links[k].target === node2.id) {
+                    links.splice(k, 1);
+                }
+                }
+
+                stop = false;
+                break outer;
+            }
+            }
+        }
+      }
+        drawGraph();
+    }
+  }
+
+	function applyShowWeight(){
+    let checked = showWeightCheck.checked;
+		g.select(".link-labels")?.remove(); 
+		if (checked){
+			g.append("g")
+				.attr("class", "link-labels")
+				.selectAll("text")
+				.data(links.filter(d =>
+      		!hiddenNodesId.has(d.source) && !hiddenNodesId.has(d.target)
+    		))
+				.enter()
+				.append("text")
+				.attr("class", "link-label")
+				.attr("x", d => (getNode(d.source).x + getNode(d.target).x) / 2)
+				.attr("y", d => (getNode(d.source).y + getNode(d.target).y) / 2)
+				.attr("dy", -5)
+				.attr("text-anchor", "middle")
+				.attr("font-size", "10px")
+				.attr("fill", "#333")
+				.text(d => d.label ?? d.weight ?? "");
+		}
+	}
+
+	function updateHiddenNodesPanel() {
+		nodeListDiv.innerHTML = "";
+		const hiddenIds = Array.from(hiddenNodesId);
+
+		if (hiddenIds.length === 0) {
+			const msg = document.createElement("div");
+			msg.textContent = "(nessun nodo nascosto)";
+			nodeListDiv.appendChild(msg);
+			return;
+		}
+
+		hiddenIds.forEach(id => {
+			const nodeData = nodes.find(n => n.id === id);
+			const label = nodeData?.label ?? id;
+
+			const item = document.createElement("div");
+			item.textContent = label;
+			item.className = "node-item";
+			item.onclick = () => {
+				hiddenNodesId.delete(id);
+				drawGraph();
+				updateHiddenNodesPanel();
+			};
+			nodeListDiv.appendChild(item);
+		});
+	}
+
+	document.addEventListener("click", e => {
+    if (!e.target.closest(".node") && !e.target.closest("#snippet")) {
+      document.getElementById("snippet").style.display = "none";
+    }
+  });
+
+  async function computeLayoutELK() {
+  const elk = new ELK();
+
+  const elkGraph = {
+    id: "root",
+    layoutOptions: {
+      "elk.algorithm": "layered",
+      "elk.direction": "DOWN",
+      "elk.spacing.nodeNode": "50"
+    },
+    children: nodes.map(n => ({ id: n.id, width: 40, height: 40 })),
+    edges: links.map(l => ({
+      id: `${l.source}->${l.target}`,
+      sources: [l.source],
+      targets: [l.target]
+    }))
+  };
+
+  const layoutedGraph = await elk.layout(elkGraph);
+  console.log(layoutedGraph.children);
+
+  layoutedGraph.children.forEach(n => {
+    const node = nodes.find(nd => nd.id === n.id);
+    if (node) {
+      node.x = +n.x;
+      node.y = +n.y;
+    }
+  });
+
+  g.selectAll("*").remove();
+  drawGraph();
+}
+
+})();
+</script>
+
+</body>
+</html>
