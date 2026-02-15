@@ -1,0 +1,435 @@
+{
+  "nodes": [
+    {
+      "id": "0",
+      "label": "alpha"
+    },
+    {
+      "id": "2",
+      "label": "root"
+    },
+    {
+      "id": "3",
+      "label": "A"
+    },
+    {
+      "id": "9",
+      "label": "F"
+    },
+    {
+      "id": "12",
+      "label": "I"
+    },
+    {
+      "id": "16",
+      "label": "L"
+    },
+    {
+      "id": "4",
+      "label": "Q"
+    },
+    {
+      "id": "10",
+      "label": "R"
+    },
+    {
+      "id": "13",
+      "label": "D"
+    },
+    {
+      "id": "17",
+      "label": "T"
+    },
+    {
+      "id": "20",
+      "label": "O"
+    },
+    {
+      "id": "23",
+      "label": "O"
+    },
+    {
+      "id": "25",
+      "label": "R"
+    },
+    {
+      "id": "26",
+      "label": "Q"
+    },
+    {
+      "id": "29",
+      "label": "S"
+    },
+    {
+      "id": "5",
+      "label": "H"
+    },
+    {
+      "id": "6",
+      "label": "G"
+    },
+    {
+      "id": "8",
+      "label": "J"
+    },
+    {
+      "id": "18",
+      "label": "N"
+    },
+    {
+      "id": "7",
+      "label": "C"
+    },
+    {
+      "id": "27",
+      "label": "C"
+    },
+    {
+      "id": "11",
+      "label": "B"
+    },
+    {
+      "id": "24",
+      "label": "Q"
+    },
+    {
+      "id": "14",
+      "label": "E"
+    },
+    {
+      "id": "15",
+      "label": "S"
+    },
+    {
+      "id": "19",
+      "label": "K"
+    },
+    {
+      "id": "30",
+      "label": "R"
+    },
+    {
+      "id": "31",
+      "label": "S"
+    },
+    {
+      "id": "21",
+      "label": "M"
+    },
+    {
+      "id": "22",
+      "label": "M"
+    },
+    {
+      "id": "28",
+      "label": "M"
+    }
+  ],
+  "links": [
+    {
+      "source": "0",
+      "target": "2",
+      "weight": 20.0
+    },
+    {
+      "source": "2",
+      "target": "3",
+      "weight": 20.0
+    },
+    {
+      "source": "2",
+      "target": "9",
+      "weight": 1.0
+    },
+    {
+      "source": "2",
+      "target": "12",
+      "weight": 20.0
+    },
+    {
+      "source": "2",
+      "target": "16",
+      "weight": 1.0
+    },
+    {
+      "source": "3",
+      "target": "4",
+      "weight": 15.0
+    },
+    {
+      "source": "3",
+      "target": "10",
+      "weight": 15.0
+    },
+    {
+      "source": "3",
+      "target": "13",
+      "weight": 1.0
+    },
+    {
+      "source": "3",
+      "target": "17",
+      "weight": 1.0
+    },
+    {
+      "source": "3",
+      "target": "20",
+      "weight": 1.0
+    },
+    {
+      "source": "3",
+      "target": "23",
+      "weight": 1.0
+    },
+    {
+      "source": "3",
+      "target": "25",
+      "weight": 2.0
+    },
+    {
+      "source": "3",
+      "target": "26",
+      "weight": 2.0
+    },
+    {
+      "source": "3",
+      "target": "29",
+      "weight": 1.0
+    },
+    {
+      "source": "12",
+      "target": "4",
+      "weight": 1.0
+    },
+    {
+      "source": "12",
+      "target": "10",
+      "weight": 1.0
+    },
+    {
+      "source": "12",
+      "target": "13",
+      "weight": 18.0
+    },
+    {
+      "source": "12",
+      "target": "17",
+      "weight": 19.0
+    },
+    {
+      "source": "12",
+      "target": "20",
+      "weight": 18.0
+    },
+    {
+      "source": "12",
+      "target": "24",
+      "weight": 1.0
+    },
+    {
+      "source": "4",
+      "target": "9",
+      "weight": 15.0
+    },
+    {
+      "source": "4",
+      "target": "5",
+      "weight": 17.0
+    },
+    {
+      "source": "4",
+      "target": "6",
+      "weight": 1.0
+    },
+    {
+      "source": "4",
+      "target": "8",
+      "weight": 15.0
+    },
+    {
+      "source": "4",
+      "target": "18",
+      "weight": 1.0
+    },
+    {
+      "source": "10",
+      "target": "11",
+      "weight": 17.0
+    },
+    {
+      "source": "13",
+      "target": "16",
+      "weight": 17.0
+    },
+    {
+      "source": "13",
+      "target": "18",
+      "weight": 1.0
+    },
+    {
+      "source": "13",
+      "target": "14",
+      "weight": 18.0
+    },
+    {
+      "source": "13",
+      "target": "15",
+      "weight": 15.0
+    },
+    {
+      "source": "13",
+      "target": "19",
+      "weight": 2.0
+    },
+    {
+      "source": "13",
+      "target": "30",
+      "weight": 1.0
+    },
+    {
+      "source": "13",
+      "target": "31",
+      "weight": 1.0
+    },
+    {
+      "source": "17",
+      "target": "9",
+      "weight": 1.0
+    },
+    {
+      "source": "17",
+      "target": "16",
+      "weight": 1.0
+    },
+    {
+      "source": "17",
+      "target": "8",
+      "weight": 1.0
+    },
+    {
+      "source": "17",
+      "target": "18",
+      "weight": 18.0
+    },
+    {
+      "source": "17",
+      "target": "14",
+      "weight": 2.0
+    },
+    {
+      "source": "17",
+      "target": "15",
+      "weight": 2.0
+    },
+    {
+      "source": "17",
+      "target": "19",
+      "weight": 18.0
+    },
+    {
+      "source": "20",
+      "target": "4",
+      "weight": 1.0
+    },
+    {
+      "source": "20",
+      "target": "21",
+      "weight": 17.0
+    },
+    {
+      "source": "20",
+      "target": "22",
+      "weight": 1.0
+    },
+    {
+      "source": "20",
+      "target": "28",
+      "weight": 1.0
+    },
+    {
+      "source": "23",
+      "target": "9",
+      "weight": 1.0
+    },
+    {
+      "source": "23",
+      "target": "5",
+      "weight": 1.0
+    },
+    {
+      "source": "23",
+      "target": "8",
+      "weight": 1.0
+    },
+    {
+      "source": "25",
+      "target": "9",
+      "weight": 2.0
+    },
+    {
+      "source": "25",
+      "target": "5",
+      "weight": 2.0
+    },
+    {
+      "source": "25",
+      "target": "8",
+      "weight": 2.0
+    },
+    {
+      "source": "26",
+      "target": "11",
+      "weight": 2.0
+    },
+    {
+      "source": "29",
+      "target": "11",
+      "weight": 1.0
+    },
+    {
+      "source": "5",
+      "target": "6",
+      "weight": 19.0
+    },
+    {
+      "source": "5",
+      "target": "8",
+      "weight": 1.0
+    },
+    {
+      "source": "5",
+      "target": "7",
+      "weight": 19.0
+    },
+    {
+      "source": "5",
+      "target": "27",
+      "weight": 1.0
+    },
+    {
+      "source": "27",
+      "target": "16",
+      "weight": 1.0
+    },
+    {
+      "source": "24",
+      "target": "21",
+      "weight": 1.0
+    },
+    {
+      "source": "31",
+      "target": "10",
+      "weight": 1.0
+    },
+    {
+      "source": "22",
+      "target": "13",
+      "weight": 1.0
+    },
+    {
+      "source": "28",
+      "target": "15",
+      "weight": 1.0
+    }
+  ]
+}
